@@ -1,7 +1,6 @@
 
 const CONFIG = {
-    GEMINI_API_KEY: import.meta.env.VITE_GEMINI_API_KEY || '',
-    GEMINI_API_URL: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+    GEMINI_API_URL: '/.netlify/functions/gemini',
     CORPORATE_BS_API_URL: 'https://corporatebs-generator.sameerkumar.website/'
 };
 
@@ -61,18 +60,16 @@ async function transformWithGemini(inputText, buzzwordPhrase) {
     const response = await fetch(CONFIG.GEMINI_API_URL, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': CONFIG.GEMINI_API_KEY
+            'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            contents: [{
-                parts: [{ text: prompt }]
-            }]
+            prompt: prompt
         })
     });
     
     if (!response.ok) {
-        throw new Error(`Gemini API error: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Gemini API error: ${response.status} - ${errorData.error || 'Unknown error'}`);
     }
     
     const data = await response.json();
