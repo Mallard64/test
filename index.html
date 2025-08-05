@@ -57,6 +57,18 @@
     
     <script>
         document.getElementById('inputText').addEventListener('input', function() {
+            const originalValue = this.value;
+            const trimmedValue = this.value.trimStart();
+            
+            // If leading whitespace was removed, update value and preserve cursor
+            if (originalValue !== trimmedValue) {
+                const cursorPos = this.selectionStart;
+                const removedChars = originalValue.length - trimmedValue.length;
+                this.value = trimmedValue;
+                // Adjust cursor position
+                this.setSelectionRange(Math.max(0, cursorPos - removedChars), Math.max(0, cursorPos - removedChars));
+            }
+            
             const count = this.value.length;
             document.getElementById('charCount').textContent = `${count} / 5000`;
         });
