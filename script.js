@@ -104,7 +104,7 @@ function setLoading(isLoading) {
     
     if (isLoading) {
         translateBtn.disabled = true;
-        translateBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Translating...';
+        translateBtn.innerHTML = 'Translating...';
     } else {
         translateBtn.disabled = false;
         translateBtn.innerHTML = 'Translate';
@@ -112,15 +112,15 @@ function setLoading(isLoading) {
 }
 
 function showStatus(element, message) {
-    element.innerHTML = `<div class="text-muted fst-italic">${message}</div>`;
+    element.innerHTML = `<div style="color: #a0aec0; font-style: italic;">${message}</div>`;
 }
 
 function showResult(element, text) {
-    element.innerHTML = `<div class="text-success">${text}</div>`;
+    element.innerHTML = `<div style="color: #2d3748;">${text}</div>`;
 }
 
 function showError(element, message) {
-    element.innerHTML = `<div class="text-danger">${message}</div>`;
+    element.innerHTML = `<div style="color: #e53e3e;">${message}</div>`;
 }
 
 
@@ -131,7 +131,7 @@ function copyToClipboard() {
     if (text && text.trim()) {
         navigator.clipboard.writeText(text).then(() => {
             const originalContent = outputElement.innerHTML;
-            outputElement.innerHTML = '<div class="text-success"><i class="bi bi-check-circle"></i> Copied to clipboard!</div>';
+            outputElement.innerHTML = '<div style="color: #38a169;">Copied to clipboard!</div>';
             setTimeout(() => {
                 outputElement.innerHTML = originalContent;
             }, 1500);

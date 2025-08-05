@@ -1,0 +1,11 @@
+{
+  "name": "corporate-speak-translator",
+  "version": "1.0.0",
+  "description": "A tool to translate plain English to corporate speak",
+  "main": "script.js",
+  "scripts": {
+    "build": "echo 'No build process needed for static site'"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
