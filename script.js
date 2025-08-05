@@ -1,6 +1,7 @@
 
 const CONFIG = {
     GEMINI_API_URL: '/.netlify/functions/gemini',
+    GEMINI_DIRECT_URL: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
     CORPORATE_BS_API_URL: 'https://corporatebs-generator.sameerkumar.website/'
 };
 
@@ -56,7 +57,41 @@ async function fetchCorporateBuzzwords() {
 
 async function transformWithGemini(inputText, buzzwordPhrase) {
     const prompt = createGeminiPrompt(inputText, buzzwordPhrase);
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     
+    const localApiKey = window.VITE_GEMINI_API_KEY;
+    if (isLocal && localApiKey) {
+        const response = await fetch(CONFIG.GEMINI_DIRECT_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': localApiKey
+            },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }]
+            })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`Gemini API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+            return data.candidates[0].content.parts[0].text.trim();
+        }
+        
+        throw new Error('No response generated from Gemini');
+    }
+    
+    // For local testing without API key, throw error
+    if (isLocal) {
+        throw new Error('Local testing requires API key. Set VITE_GEMINI_API_KEY environment variable or window.VITE_GEMINI_API_KEY');
+    }
+    
+    // For production (Netlify), use function
     const response = await fetch(CONFIG.GEMINI_API_URL, {
         method: 'POST',
         headers: {
@@ -80,6 +115,7 @@ async function transformWithGemini(inputText, buzzwordPhrase) {
     
     throw new Error('No response generated from Gemini');
 }
+
 
 function createGeminiPrompt(inputText, buzzwordPhrase) {
     return `Take this input phrase: "${inputText}"
@@ -116,7 +152,7 @@ function showStatus(element, message) {
 }
 
 function showResult(element, text) {
-    element.innerHTML = `<div style="color: #2d3748;">${text}</div>`;
+    element.innerHTML = `<div style="color: #2d3748;">${text.trim()}</div>`;
 }
 
 function showError(element, message) {
