@@ -1,7 +1,7 @@
 
 const CONFIG = {
     GEMINI_API_URL: '/.netlify/functions/gemini',
-    GEMINI_DIRECT_URL: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
+    GEMINI_DIRECT_URL: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent',
     CORPORATE_BS_API_URL: 'https://corporatebs-generator.sameerkumar.website/'
 };
 
