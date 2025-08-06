@@ -49,9 +49,6 @@
                 <button class="btn btn-translate" id="translateBtn">
                     Translate
                 </button>
-                <div class="keyboard-shortcut">
-                    Ctrl+Enter to translate
-                </div>
             </div>
             
             <div class="saved-phrases-section" style="margin-top: 30px; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
@@ -71,13 +68,11 @@
         document.getElementById('inputText').addEventListener('input', function() {
             const originalValue = this.value;
             const trimmedValue = this.value.trimStart();
-            
-            // If leading whitespace was removed, update value and preserve cursor
+
             if (originalValue !== trimmedValue) {
                 const cursorPos = this.selectionStart;
                 const removedChars = originalValue.length - trimmedValue.length;
                 this.value = trimmedValue;
-                // Adjust cursor position
                 this.setSelectionRange(Math.max(0, cursorPos - removedChars), Math.max(0, cursorPos - removedChars));
             }
             

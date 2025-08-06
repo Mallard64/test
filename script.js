@@ -122,13 +122,11 @@ function showStatus(element, message) {
 
 function showResult(element, text) {
     element.innerHTML = `<div style="color: #2d3748;">${text.trim()}</div>`;
-    // Show save button when there's a result
     document.getElementById('saveBtn').style.display = 'inline-block';
 }
 
 function showError(element, message) {
     element.innerHTML = `<div style="color: #e53e3e;">${message}</div>`;
-    // Hide save button on error
     document.getElementById('saveBtn').style.display = 'none';
 }
 
@@ -150,7 +148,6 @@ function copyToClipboard() {
     }
 }
 
-// Saved phrases functionality
 function savePhrase() {
     const outputElement = Elements.output();
     const text = outputElement.innerText.trim();
@@ -163,17 +160,16 @@ function savePhrase() {
         return;
     }
     
-    // Get existing saved phrases
     let savedPhrases = JSON.parse(localStorage.getItem('corporatePhrases') || '[]');
     
-    // Add new phrase with timestamp
     const newPhrase = {
         id: Date.now(),
         text: text,
         timestamp: new Date().toLocaleString()
     };
+
+    document.getElementById('saveBtn').style.display = 'none';
     
-    // Check for duplicates
     if (savedPhrases.some(phrase => phrase.text === text)) {
         showError(outputElement, 'Phrase already saved');
         setTimeout(() => {
@@ -182,10 +178,9 @@ function savePhrase() {
         return;
     }
     
-    savedPhrases.unshift(newPhrase); // Add to beginning
+    savedPhrases.unshift(newPhrase); 
     localStorage.setItem('corporatePhrases', JSON.stringify(savedPhrases));
     
-    // Show success message
     const originalContent = outputElement.innerHTML;
     outputElement.innerHTML = '<div style="color: #38a169;">Phrase saved!</div>';
     setTimeout(() => {
@@ -254,5 +249,5 @@ function clearSavedPhrases() {
 
 document.addEventListener('DOMContentLoaded', function() {
     Elements.translateBtn()?.addEventListener('click', translateToCorporate);
-    displaySavedPhrases(); // Load saved phrases on page load
+    displaySavedPhrases();
 });
