@@ -122,10 +122,14 @@ function showStatus(element, message) {
 
 function showResult(element, text) {
     element.innerHTML = `<div style="color: #2d3748;">${text.trim()}</div>`;
+    // Show save button when there's a result
+    document.getElementById('saveBtn').style.display = 'inline-block';
 }
 
 function showError(element, message) {
     element.innerHTML = `<div style="color: #e53e3e;">${message}</div>`;
+    // Hide save button on error
+    document.getElementById('saveBtn').style.display = 'none';
 }
 
 
@@ -146,6 +150,109 @@ function copyToClipboard() {
     }
 }
 
+// Saved phrases functionality
+function savePhrase() {
+    const outputElement = Elements.output();
+    const text = outputElement.innerText.trim();
+    
+    if (!text || text.includes('Sophisticated dialogue will appear here') || text.includes('Translation failed')) {
+        showError(outputElement, 'No valid phrase to save');
+        setTimeout(() => {
+            outputElement.innerHTML = '<div style="color: #a0aec0; font-style: italic;">Sophisticated dialogue will appear here...</div>';
+        }, 2000);
+        return;
+    }
+    
+    // Get existing saved phrases
+    let savedPhrases = JSON.parse(localStorage.getItem('corporatePhrases') || '[]');
+    
+    // Add new phrase with timestamp
+    const newPhrase = {
+        id: Date.now(),
+        text: text,
+        timestamp: new Date().toLocaleString()
+    };
+    
+    // Check for duplicates
+    if (savedPhrases.some(phrase => phrase.text === text)) {
+        showError(outputElement, 'Phrase already saved');
+        setTimeout(() => {
+            outputElement.innerHTML = `<div style="color: #2d3748;">${text}</div>`;
+        }, 1500);
+        return;
+    }
+    
+    savedPhrases.unshift(newPhrase); // Add to beginning
+    localStorage.setItem('corporatePhrases', JSON.stringify(savedPhrases));
+    
+    // Show success message
+    const originalContent = outputElement.innerHTML;
+    outputElement.innerHTML = '<div style="color: #38a169;">Phrase saved!</div>';
+    setTimeout(() => {
+        outputElement.innerHTML = originalContent;
+    }, 1500);
+    
+    displaySavedPhrases();
+}
+
+function displaySavedPhrases() {
+    const savedPhrases = JSON.parse(localStorage.getItem('corporatePhrases') || '[]');
+    const listElement = document.getElementById('savedPhrasesList');
+    
+    if (savedPhrases.length === 0) {
+        listElement.innerHTML = '<div style="color: #a0aec0; font-style: italic; text-align: center; padding: 20px;">No saved phrases yet</div>';
+        return;
+    }
+    
+    listElement.innerHTML = savedPhrases.map(phrase => `
+        <div style="border-bottom: 1px solid #e2e8f0; padding: 12px 0; display: flex; justify-content: space-between; align-items: start;">
+            <div style="flex: 1; margin-right: 12px;">
+                <div style="color: #2d3748; line-height: 1.4; margin-bottom: 4px;">${phrase.text}</div>
+                <div style="color: #a0aec0; font-size: 12px;">${phrase.timestamp}</div>
+            </div>
+            <div style="display: flex; gap: 4px;">
+                <button onclick="copyPhrase('${phrase.id}')" style="background: none; border: 1px solid #e2e8f0; color: #4a5568; font-size: 11px; padding: 4px 8px; border-radius: 4px; cursor: pointer;">Copy</button>
+                <button onclick="deletePhrase('${phrase.id}')" style="background: none; border: 1px solid #e53e3e; color: #e53e3e; font-size: 11px; padding: 4px 8px; border-radius: 4px; cursor: pointer;">×</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function copyPhrase(phraseId) {
+    const savedPhrases = JSON.parse(localStorage.getItem('corporatePhrases') || '[]');
+    const phrase = savedPhrases.find(p => p.id == phraseId);
+    
+    if (phrase) {
+        navigator.clipboard.writeText(phrase.text).then(() => {
+            const copyBtn = event.target;
+            const originalText = copyBtn.innerHTML;
+            copyBtn.innerHTML = '✓';
+            copyBtn.style.background = '#38a169';
+            copyBtn.style.color = 'white';
+            setTimeout(() => {
+                copyBtn.innerHTML = originalText;
+                copyBtn.style.background = 'none';
+                copyBtn.style.color = '#4a5568';
+            }, 1000);
+        });
+    }
+}
+
+function deletePhrase(phraseId) {
+    let savedPhrases = JSON.parse(localStorage.getItem('corporatePhrases') || '[]');
+    savedPhrases = savedPhrases.filter(phrase => phrase.id != phraseId);
+    localStorage.setItem('corporatePhrases', JSON.stringify(savedPhrases));
+    displaySavedPhrases();
+}
+
+function clearSavedPhrases() {
+    if (confirm('Are you sure you want to clear all saved phrases?')) {
+        localStorage.removeItem('corporatePhrases');
+        displaySavedPhrases();
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     Elements.translateBtn()?.addEventListener('click', translateToCorporate);
+    displaySavedPhrases(); // Load saved phrases on page load
 });
