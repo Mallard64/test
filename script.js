@@ -4,7 +4,8 @@ const CONFIG = {
                    window.location.hostname === 'localhost' ? '/api/gemini' : 
                    '/.netlify/functions/gemini',
     GEMINI_DIRECT_URL: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent',
-    CORPORATE_BS_API_URL: 'https://corporatebs-generator.sameerkumar.website/'
+    CORPORATE_BS_API_URL: 'https://corporatebs-generator.sameerkumar.website/',
+    FIREBASE_DB_URL: 'https://corporatify-bdcb8-default-rtdb.firebaseio.com/'
 };
 
 const Elements = {
@@ -148,7 +149,7 @@ function copyToClipboard() {
     }
 }
 
-function savePhrase() {
+async function savePhrase() {
     const outputElement = Elements.output();
     const text = outputElement.innerText.trim();
     
@@ -160,8 +161,6 @@ function savePhrase() {
         return;
     }
     
-    let savedPhrases = JSON.parse(localStorage.getItem('corporatePhrases') || '[]');
-    
     const newPhrase = {
         id: Date.now(),
         text: text,
@@ -170,74 +169,191 @@ function savePhrase() {
 
     document.getElementById('saveBtn').style.display = 'none';
     
-    if (savedPhrases.some(phrase => phrase.text === text)) {
-        showError(outputElement, 'Phrase already saved');
+    try {
+        await saveToFirebase(newPhrase);
+        
+        let savedPhrases = JSON.parse(localStorage.getItem('corporatePhrases') || '[]');
+        
+        if (savedPhrases.some(phrase => phrase.text === text)) {
+            showError(outputElement, 'Phrase already saved');
+            setTimeout(() => {
+                outputElement.innerHTML = `<div style="color: #2d3748;">${text}</div>`;
+            }, 1500);
+            return;
+        }
+        
+        savedPhrases.unshift(newPhrase); 
+        localStorage.setItem('corporatePhrases', JSON.stringify(savedPhrases));
+        
+        const originalContent = outputElement.innerHTML;
+        outputElement.innerHTML = '<div style="color: #38a169;">Phrase saved to cloud!</div>';
+        setTimeout(() => {
+            outputElement.innerHTML = originalContent;
+        }, 1500);
+        
+        displaySavedPhrases();
+    } catch (error) {
+        console.error('Failed to save to Firebase:', error);
+        showError(outputElement, 'Failed to save to cloud, saving locally');
+        
+        let savedPhrases = JSON.parse(localStorage.getItem('corporatePhrases') || '[]');
+        savedPhrases.unshift(newPhrase); 
+        localStorage.setItem('corporatePhrases', JSON.stringify(savedPhrases));
+        
         setTimeout(() => {
             outputElement.innerHTML = `<div style="color: #2d3748;">${text}</div>`;
         }, 1500);
-        return;
+        
+        displaySavedPhrases();
     }
-    
-    savedPhrases.unshift(newPhrase); 
-    localStorage.setItem('corporatePhrases', JSON.stringify(savedPhrases));
-    
-    const originalContent = outputElement.innerHTML;
-    outputElement.innerHTML = '<div style="color: #38a169;">Phrase saved!</div>';
-    setTimeout(() => {
-        outputElement.innerHTML = originalContent;
-    }, 1500);
-    
-    displaySavedPhrases();
 }
 
-function displaySavedPhrases() {
-    const savedPhrases = JSON.parse(localStorage.getItem('corporatePhrases') || '[]');
+async function displaySavedPhrases() {
     const listElement = document.getElementById('savedPhrasesList');
     
-    if (savedPhrases.length === 0) {
-        listElement.innerHTML = '<div style="color: #a0aec0; font-style: italic; text-align: center; padding: 20px;">No saved phrases yet</div>';
-        return;
-    }
+    listElement.innerHTML = '<div style="color: #a0aec0; font-style: italic; text-align: center; padding: 20px;">Loading phrases...</div>';
     
-    listElement.innerHTML = savedPhrases.map(phrase => `
-        <div style="border-bottom: 1px solid #e2e8f0; padding: 12px 0; display: flex; justify-content: space-between; align-items: start;">
-            <div style="flex: 1; margin-right: 12px;">
-                <div style="color: #2d3748; line-height: 1.4; margin-bottom: 4px;">${phrase.text}</div>
-                <div style="color: #a0aec0; font-size: 12px;">${phrase.timestamp}</div>
+    try {
+        const firebasePhrases = await loadFromFirebase();
+        const localPhrases = JSON.parse(localStorage.getItem('corporatePhrases') || '[]');
+        
+        const allPhrases = [...firebasePhrases, ...localPhrases]
+            .filter((phrase, index, arr) => 
+                arr.findIndex(p => p.text === phrase.text) === index
+            )
+            .sort((a, b) => b.id - a.id);
+        
+        if (allPhrases.length === 0) {
+            listElement.innerHTML = '<div style="color: #a0aec0; font-style: italic; text-align: center; padding: 20px;">No saved phrases yet</div>';
+            return;
+        }
+        
+        listElement.innerHTML = allPhrases.map(phrase => `
+            <div style="border-bottom: 1px solid #e2e8f0; padding: 12px 0; display: flex; justify-content: space-between; align-items: start;">
+                <div style="flex: 1; margin-right: 12px;">
+                    <div style="color: #2d3748; line-height: 1.4; margin-bottom: 4px;">${phrase.text}</div>
+                </div>
+                <div style="display: flex; gap: 4px;">
+                    <button onclick="copyPhrase('${phrase.id}')" style="background: none; border: 1px solid #e2e8f0; color: #4a5568; font-size: 11px; padding: 4px 8px; border-radius: 4px; cursor: pointer;">Copy</button>
+                    <button onclick="deletePhrase('${phrase.id}', '${phrase.firebaseId || ''}')" style="background: none; border: 1px solid #e53e3e; color: #e53e3e; font-size: 11px; padding: 4px 8px; border-radius: 4px; cursor: pointer;">×</button>
+                </div>
             </div>
-            <div style="display: flex; gap: 4px;">
-                <button onclick="copyPhrase('${phrase.id}')" style="background: none; border: 1px solid #e2e8f0; color: #4a5568; font-size: 11px; padding: 4px 8px; border-radius: 4px; cursor: pointer;">Copy</button>
-                <button onclick="deletePhrase('${phrase.id}')" style="background: none; border: 1px solid #e53e3e; color: #e53e3e; font-size: 11px; padding: 4px 8px; border-radius: 4px; cursor: pointer;">×</button>
+        `).join('');
+    } catch (error) {
+        console.error('Error displaying phrases:', error);
+        const localPhrases = JSON.parse(localStorage.getItem('corporatePhrases') || '[]');
+        
+        if (localPhrases.length === 0) {
+            listElement.innerHTML = '<div style="color: #a0aec0; font-style: italic; text-align: center; padding: 20px;">No saved phrases yet</div>';
+            return;
+        }
+        
+        listElement.innerHTML = localPhrases.map(phrase => `
+            <div style="border-bottom: 1px solid #e2e8f0; padding: 12px 0; display: flex; justify-content: space-between; align-items: start;">
+                <div style="flex: 1; margin-right: 12px;">
+                    <div style="color: #2d3748; line-height: 1.4; margin-bottom: 4px;">${phrase.text}</div>
+                    <div style="color: #a0aec0; font-size: 12px;">${phrase.timestamp} <span style="color: #ed8936;"> • Local</span></div>
+                </div>
+                <div style="display: flex; gap: 4px;">
+                    <button onclick="copyPhrase('${phrase.id}')" style="background: none; border: 1px solid #e2e8f0; color: #4a5568; font-size: 11px; padding: 4px 8px; border-radius: 4px; cursor: pointer;">Copy</button>
+                    <button onclick="deletePhrase('${phrase.id}')" style="background: none; border: 1px solid #e53e3e; color: #e53e3e; font-size: 11px; padding: 4px 8px; border-radius: 4px; cursor: pointer;">×</button>
+                </div>
             </div>
-        </div>
-    `).join('');
+        `).join('');
+    }
 }
 
-function copyPhrase(phraseId) {
-    const savedPhrases = JSON.parse(localStorage.getItem('corporatePhrases') || '[]');
-    const phrase = savedPhrases.find(p => p.id == phraseId);
-    
-    if (phrase) {
-        navigator.clipboard.writeText(phrase.text).then(() => {
-            const copyBtn = event.target;
-            const originalText = copyBtn.innerHTML;
-            copyBtn.innerHTML = '✓';
-            copyBtn.style.background = '#38a169';
-            copyBtn.style.color = 'white';
-            setTimeout(() => {
-                copyBtn.innerHTML = originalText;
-                copyBtn.style.background = 'none';
-                copyBtn.style.color = '#4a5568';
-            }, 1000);
-        });
+async function copyPhrase(phraseId) {
+    try {
+        const firebasePhrases = await loadFromFirebase();
+        const localPhrases = JSON.parse(localStorage.getItem('corporatePhrases') || '[]');
+        const allPhrases = [...firebasePhrases, ...localPhrases];
+        const phrase = allPhrases.find(p => p.id == phraseId);
+        
+        if (phrase) {
+            navigator.clipboard.writeText(phrase.text).then(() => {
+                const copyBtn = event.target;
+                const originalText = copyBtn.innerHTML;
+                copyBtn.innerHTML = '✓';
+                copyBtn.style.background = '#38a169';
+                copyBtn.style.color = 'white';
+                setTimeout(() => {
+                    copyBtn.innerHTML = originalText;
+                    copyBtn.style.background = 'none';
+                    copyBtn.style.color = '#4a5568';
+                }, 1000);
+            });
+        }
+    } catch (error) {
+        console.error('Error copying phrase:', error);
     }
 }
 
-function deletePhrase(phraseId) {
-    let savedPhrases = JSON.parse(localStorage.getItem('corporatePhrases') || '[]');
-    savedPhrases = savedPhrases.filter(phrase => phrase.id != phraseId);
-    localStorage.setItem('corporatePhrases', JSON.stringify(savedPhrases));
-    displaySavedPhrases();
+async function deletePhrase(phraseId, firebaseId = '') {
+    try {
+        if (firebaseId) {
+            const response = await fetch(`${CONFIG.FIREBASE_DB_URL}phrases/${firebaseId}.json`, {
+                method: 'DELETE'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Firebase delete error: ${response.status}`);
+            }
+        }
+        
+        let savedPhrases = JSON.parse(localStorage.getItem('corporatePhrases') || '[]');
+        savedPhrases = savedPhrases.filter(phrase => phrase.id != phraseId);
+        localStorage.setItem('corporatePhrases', JSON.stringify(savedPhrases));
+        
+        displaySavedPhrases();
+    } catch (error) {
+        console.error('Error deleting phrase:', error);
+        alert('Failed to delete phrase from cloud, but removed locally');
+        
+        let savedPhrases = JSON.parse(localStorage.getItem('corporatePhrases') || '[]');
+        savedPhrases = savedPhrases.filter(phrase => phrase.id != phraseId);
+        localStorage.setItem('corporatePhrases', JSON.stringify(savedPhrases));
+        
+        displaySavedPhrases();
+    }
+}
+
+async function saveToFirebase(phrase) {
+    const response = await fetch(`${CONFIG.FIREBASE_DB_URL}phrases.json`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(phrase)
+    });
+    
+    if (!response.ok) {
+        throw new Error(`Firebase error: ${response.status}`);
+    }
+    
+    return response.json();
+}
+
+async function loadFromFirebase() {
+    try {
+        const response = await fetch(`${CONFIG.FIREBASE_DB_URL}phrases.json`);
+        
+        if (!response.ok) {
+            throw new Error(`Firebase error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!data) return [];
+        
+        return Object.keys(data).map(key => ({
+            ...data[key],
+            firebaseId: key
+        })).sort((a, b) => b.id - a.id);
+    } catch (error) {
+        console.error('Failed to load from Firebase:', error);
+        return [];
+    }
 }
 
 function clearSavedPhrases() {
